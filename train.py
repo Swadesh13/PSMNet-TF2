@@ -30,6 +30,7 @@ parser.add_argument("--height", default=256, type=int)
 parser.add_argument("--width", default=512, type=int)
 parser.add_argument("--cnn_3d_type", default="resnet_3d", type=str)
 parser.add_argument("--save", default="output", type=str, help="Path to model output")
+parser.add_argument("--train_size", default=160, type=int)
 
 args = parser.parse_args()
 
@@ -51,7 +52,7 @@ for epoch in range(1, args.epochs+1):
     print(f"\nEpoch {epoch} / {args.epochs}")
     train_loss = 0
     start_time = time.time()
-    for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(dg.generator(is_training=True)):
+    for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(dg.generator(train_size=args.train_size, is_training=True)):
         with tf.GradientTape() as tape:
             y_pred = model([imgL_crop, imgR_crop], training=True)
             disps_mask = tf.where(disp_crop_L > 0., y_pred, disp_crop_L)

@@ -2,7 +2,7 @@ import os
 import re
 import numpy as np
 import cv2
-from scipy import misc
+import imageio
 import numpy as np
 import sys
 import random
@@ -118,13 +118,13 @@ def readImage(name):
         else:
             return data
 
-    return misc.imread(name)
+    return imageio.imread(name)
 
 def writeImage(name, data):
     if name.endswith('.pfm') or name.endswith('.PFM'):
         return writePFM(name, data, 1)
 
-    return misc.imsave(name, data)
+    return imageio.imsave(name, data)
 
 def writeFlow(name, flow):
     f = open(name, 'wb')
@@ -192,7 +192,7 @@ class DataLoaderKITTI(object):
         self.patch_size = patch_size
         self.max_disp = max_disp
 
-    def generator(self, is_training=True):
+    def generator(self, train_size, is_training=True):
         left_data = os.listdir(self.left_path)
         right_data = os.listdir(self.right_path)
         labels = os.listdir(self.gt_path)
@@ -200,15 +200,15 @@ class DataLoaderKITTI(object):
         right_data.sort(key=str.lower)
         labels.sort(key=str.lower)
 
-        train_left = left_data[:160]
-        train_right = right_data[:160]
-        train_labels = labels[:160]
+        train_left = left_data[:train_size]
+        train_right = right_data[:train_size]
+        train_labels = labels[:train_size]
 
-        val_left = left_data[160:]
-        val_right = right_data[160:]
-        val_labels = labels[160:]
+        val_left = left_data[train_size:]
+        val_right = right_data[train_size:]
+        val_labels = labels[train_size:]
 
-        index = [i for i in range(160)]
+        index = [i for i in range(train_size)]
         random.shuffle(index)
         shuffled_labels = []
         shuffled_left_data = []
@@ -219,12 +219,12 @@ class DataLoaderKITTI(object):
             shuffled_right_data.append(train_right[i])
             shuffled_labels.append(train_labels[i])
         if is_training:
-            for j in range(160 // self.batch_size):
+            for j in range(train_size // self.batch_size):
                 left, right, label = self.load_batch(shuffled_left_data[j * self.batch_size: (j + 1) * self.batch_size],
-                                                     shuffled_right_data[
-                                                     j * self.batch_size: (j + 1) * self.batch_size],
-                                                     shuffled_labels[j * self.batch_size: (j + 1) * self.batch_size],
-                                                     is_training)
+                                                        shuffled_right_data[
+                                                        j * self.batch_size: (j + 1) * self.batch_size],
+                                                        shuffled_labels[j * self.batch_size: (j + 1) * self.batch_size],
+                                                        is_training)
                 left = np.array(left)
                 right = np.array(right)
                 label = np.array(label)
@@ -232,9 +232,9 @@ class DataLoaderKITTI(object):
         else:
             for j in range(40 // self.batch_size):
                 left, right, label = self.load_batch(val_left[j * self.batch_size: (j + 1) * self.batch_size],
-                                                     val_right[j * self.batch_size: (j + 1) * self.batch_size],
-                                                     val_labels[j * self.batch_size: (j + 1) * self.batch_size],
-                                                     is_training)
+                                                        val_right[j * self.batch_size: (j + 1) * self.batch_size],
+                                                        val_labels[j * self.batch_size: (j + 1) * self.batch_size],
+                                                        is_training)
                 left = np.array(left)
                 right = np.array(right)
                 label = np.array(label)
@@ -252,13 +252,13 @@ class DataLoaderKITTI(object):
                 crop_x = (368 - self.patch_size[0]) // 2
                 crop_y = (1224 - self.patch_size[1]) // 2
 
-            x = cv2.imread(self.left_path + x)
+            x = cv2.imread(os.path.join(self.left_path, x))
             x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)
             x = x[crop_x: crop_x + self.patch_size[0], crop_y: crop_y + self.patch_size[1], :]
             x = self.mean_std(x)
             batch_left.append(x)
 
-            y = cv2.imread(self.right_path + y)
+            y = cv2.imread(os.path.join(self.right_path, y))
             y = cv2.cvtColor(y, cv2.COLOR_BGR2RGB)
             y = y[crop_x: crop_x + self.patch_size[0], crop_y: crop_y + self.patch_size[1], :]
             y = self.mean_std(y)
@@ -269,7 +269,7 @@ class DataLoaderKITTI(object):
             # z = z[crop_x: crop_x + self.patch_size[0], crop_y: crop_y + self.patch_size[1]]
             # z[z > (self.max_disp-1)] = self.max_disp - 1
             # batch_label.append(z)
-            z=read(self.gt_path + z)
+            z=read(os.path.join(self.gt_path, z))
             batch_label.append(z)
 
         return batch_left, batch_right, batch_label
